@@ -24,16 +24,37 @@ library(phytools)
 
 jplace_file <- file.path(CorePath, "R_wdir/epa_result.jplace")
 
+### test JPLACE
 tree.text<-"(((((((A:4{0},B:4{1}):6{2},C:5{3}):8{4},D:6{5}):3{6},E:21{7}):10{8},((F:4{9},G:12{10}):14{11},H:8{12}):13{13}):13{14},((I:5{15},J:2{16}):30{17},(K:11{18},L:11{19}):2{20}):17{21}):4{22},M:56{23});"
+Ref.Phylo<- read.tree(text=tree.text)
+placements<-data.frame(name=c("AAA", "EEE", "XXX", "XXX", "XXX", "YYY", "outgroup", 
+                              "AA2", "EE2", "XX2", "out2", "out3",
+                              "AA3", "XX3"), 
+                       edge_num=c(1, 5, 18, 8, 9, 25, 14,
+                                  1, 5, 18, 14,
+                                  1, 18, 14), 
+                       likelihood=c(-4987.366, -4977.344, -4487.390, -4523.130, -4589.930, -4977.344, -4977.344,
+                                    -4987.366, -4977.344, -4977.344, -4977.344,
+                                    -4977.344, -4977.344, -4977.344),
+                       like_weight_ratio=c(0.08358164, 0.04068357, 0.02859273, 0.02859273, 0.02859273, 0.02859273, 0.02859273,
+                                           0.08358164, 0.04068357, 0.02859273, 0.02859273,
+                                           0.02859273, 0.04068357, 0.04068357),
+                       distal_length=c(0.5, 1, 1, 1, 1, 1, 1,
+                                       1, 1, 1, 1,
+                                       1, 1,1),
+                       pendant_length=c(4, 5, 3, 3, 3, 5, 24,
+                                        8, 12, 3, 30,
+                                        7, 23,2))
 
-placeM<-data.frame(edge_num=c(0, 7, 8), name=c("AAA", "EEE", "XXX"), 
-                   likelihood=c(-4987.366, -4977.344, -4487.390),
-                   like_weight_ratio=c(0.08358164, 0.04068357, 0.02859273),
-                   distal_length=c(0.0000500, 0.1632450, 0.0000500),
-                   pendant_length=c(4.423338, 5.773143, 3.200625),
-                   node=c(1, 5, 21))
-RefTree.jplace <- tree.text
-phylo <- read.tree(text=tree.text)
+
+info <- list("test tree")
+test_jplace <- new("jplace2",
+                treetext   = tree.text,
+                phylo      = Ref.Phylo,
+                placements = placements,
+                info       = info,
+                file       = normalizePath(jplace_file)
+                )
 
 #############################################################################
 ###    Classes and methodes
@@ -114,15 +135,15 @@ get.placements.best<-function(placements=NULL){
 
 get.descendants <- function(target_node, edgeList, type=c("all", "tips", "nodes", "direct")){
   # function will get the descending nodes (in the direction away from the root) from a given node
-  # input requires an phylo-style edgelist instead of a phylo object
+  # input requires an phylo-style edgeList instead of a phylo object
   # type:all = all descendants
   # type:tips = only the tips
   # type:nodes = only internal nodes
   # type:direct = only the direct descendants
-  descList<-edgelist[edgelist[,1]==target_node,2] #the direct descendants
+  descList<-edgeList[edgeList[,1]==target_node,2] #the direct descendants
   # get the root, if not present: stop function
   treeRoot <- tryCatch({
-    setdiff(edgelist[,1], edgelist[,2])
+    setdiff(edgeList[,1], edgeList[,2])
   }, error=function(e){
     stop("there is no root in the edgeList. Are you sure the tree was rooted?")
   })
@@ -139,7 +160,7 @@ get.descendants <- function(target_node, edgeList, type=c("all", "tips", "nodes"
       n_added = 0
       for(d in descList){
         if(!d %in% doneList){
-          d2 <- edgelist[edgelist[,1]==d,2]
+          d2 <- edgeList[edgeList[,1]==d,2]
           doneList <- c(doneList,d)
           if(length(d2)>0){
             descList<- c(descList, d2)
@@ -160,7 +181,7 @@ get.descendants <- function(target_node, edgeList, type=c("all", "tips", "nodes"
 
 get.ancestors <- function(target_node, edgeList, type=c("all", "parent")){
   # function will get the ancestor nodes (in the direction to the root) from a given node
-  # input requires an phylo-style edgelist instead of a phylo object
+  # input requires an phylo-style edgeList instead of a phylo object
   # type:all = all ancestors
   # type:parent = only the direct ancestor
   ancsList<-edgeList[edgeList[,2]==target_node,1] #the parent
@@ -168,6 +189,9 @@ get.ancestors <- function(target_node, edgeList, type=c("all", "parent")){
   if(is.null(type) | !(type %in% c("all", "parent"))){
     stop("incorrect \"type\" argument. 
          argument must be either \"all\", \"parent\"")
+  } 
+  if(is.na(target_node) | !(target_node %in% c(edgeList))){
+    stop("incorrect \"target_node\" argument.")
   }
   
   if(type == "all"){
@@ -199,10 +223,7 @@ require(treeio)
 read.jplace2 <- function(jplace_file=""){
   ## function to read a jplace file
   ## output will be a jplace2 class object
-
-  #### TEST: A SIMPLE TREE TO TEST STUFF
-  ##RefTree.jplace<-"(((((((A:4{0},B:4{1}):6{2},C:5{3}):8{4},D:6{5}):3{6},E:21{7}):10{8},((F:4{9},G:12{10}):14{11},H:8{12}):13{13}):13{14},((I:5{15},J:2{16}):30{17},(K:11{18},L:11{19}):2{20}):17{21}):4{22},M:56{23});"
-
+  
   # 1) read in the data
   json_data <- fromJSON(jplace_file)
   RefTree.jplace <- json_data$tree
@@ -341,17 +362,7 @@ read.jplace2 <- function(jplace_file=""){
   class(Ref.Phylo) <- "phylo"
   attr(Ref.Phylo, "order") <- "cladewise"
   
-    #### TEST: PLOT REFERENCE TREE
-    #checkValidPhylo(Ref.Phylo)
-    #require(ggtree)
-    #edge=data.frame(Ref.Phylo$edge, edge_num=Ref.Phylo$edge[,2])
-    #colnames(edge)=c("parent", "node", "edge_num")
-    #t <- ggtree(Ref.Phylo, ladderize=FALSE) + geom_tiplab() + theme_tree2() + xlim(0, 100) + geom_text2(aes(subset = !isTip, label=label)) 
-    #t %<+% edge + geom_label(aes(x=branch, label=edge_num))
-    
     ## ToDo_HighPriority: output tree has issue with ape::ladderize()
-
-
     
   # 4) getting the phylogenetic placement data
   # 4.1) extracting the placements from JSON
@@ -419,30 +430,7 @@ read.jplace2 <- function(jplace_file=""){
 ###    putting placements into a tree
 #############################################################################
 
-### TEST: A PLACEMENT TO TEST
-placements<-data.frame(name=c("AAA", "EEE", "XXX", "XXX", "XXX", "YYY", "outgroup", 
-                              "AA2", "EE2", "XX2", "out2",
-                              "AA3", "XX3"), 
-                       edge_num=c(1, 5, 18, 8, 9, 25, 14,
-                                  1, 5, 18, 14,
-                                  1, 18), 
-                       likelihood=c(-4987.366, -4977.344, -4487.390, -4523.130, -4589.930, -4977.344, -4977.344,
-                                    -4987.366, -4977.344, -4977.344, -4977.344,
-                                    -4977.344, -4977.344),
-                       like_weight_ratio=c(0.08358164, 0.04068357, 0.02859273, 0.02859273, 0.02859273, 0.02859273, 0.02859273,
-                                           0.08358164, 0.04068357, 0.02859273, 0.02859273,
-                                           0.02859273, 0.04068357),
-                       distal_length=c(1, 1, 1.5, 1, 1, 1, 1,
-                                       1, 1, 1, 1,
-                                       1, 0.3),
-                       pendant_length=c(4, 5, 3, 3, 3, 5, 24,
-                                        8, 12, 3, 30,
-                                        7, 23))
-
-placements<-get.placements.best(placements)
-
-
-get.placements.phylo<-function(jplace2_data=""){
+get.placements.phylo<-function(jplace2_data="", verbose=FALSE){
   # function that takes a jplace2 object
   # returns a phylo object of the reference tree that includes placements based on the "best" position
   # this cannot be done with bind.tree of ape because nodes are renumbered. 
@@ -486,18 +474,21 @@ get.placements.phylo<-function(jplace2_data=""){
                           new_edge = ((orig_root+1):(n.nodes+1))) # matrix keeping track of all the internal nodes
   if(!is.null(Ref.Phylo$edge.length)){
     BL <- TRUE
+    if(verbose){print("including branch lengths")}
     branch_lengths <- data.frame(orig_edge = c(1:(orig_root-1), (orig_root+1):(n.nodes+1)), 
                                  prev_edge = c(1:(orig_root-1), (orig_root+1):(n.nodes+1)),
                                  new_edge = c(1:(orig_root-1), (orig_root+1):(n.nodes+1)), 
                                  length = Ref.Phylo$edge.length) 
   } else{
     BL <- FALSE
-    warning("the reference tree has no edge lengths.")
+    if(verbose){print("the reference tree has no edge lengths.")}
   }
   
   # remove double placements, keep just the ones with higest probability
   placements <- get.placements.best(placements)
   target_locations<-unique(placements$edge_num)
+  if(verbose){print(paste("There are", nrow(placements), "placements for", 
+                          length(target_locations), "edges"))}
 
   # function to update edges
   update.edge <- function(e){
@@ -523,7 +514,7 @@ get.placements.phylo<-function(jplace2_data=""){
     } else if(e < previous_root & length(orig_tip[orig_tip$prev_edge==e,]$new_edge) > 1){ 
       # special case: conflict with a new tip to an internal edge
       # return the edge that was in the tree first
-      e_updated <- orig_tip[orig_tip$prev_edge==e & orig_tip$orig_edge != -p_loc_prev,]$new_edge
+      e_updated <- orig_tip[orig_tip$prev_edge==e & orig_tip$orig_edge != -p_loc_orig,]$new_edge
     } else{ 
       # any other case: the edge was already part of the tree in the previous itteration
       if(e < previous_root){ # case 1: changing a tip
@@ -545,6 +536,7 @@ get.placements.phylo<-function(jplace2_data=""){
   # with the largest distal length splitting of first
   #---------------------------------------------
   for(p_loc_orig in target_locations){ 
+    if(verbose){print(paste("processing placements for edge", p_loc_orig))}
     # p_edge is the target edge for thisparticular (set of) placement(s)
     p_placements <- placements[placements$edge_num==p_loc_orig,]
     
@@ -576,11 +568,14 @@ get.placements.phylo<-function(jplace2_data=""){
     orig_tip$prev_edge <- orig_tip$new_edge
     orig_node$prev_edge <- orig_node$new_edge
     if(BL){branch_lengths$prev_edge <- branch_lengths$new_edge}
+   
     
     # order based on distal length, largest length last (because it will split of first)
     p_placements <- p_placements[with(p_placements, order(p_placements$distal_length, decreasing = FALSE)),]
     
-    if(case_is_tip){     
+    #######################################
+    if(case_is_tip){   
+    #######################################
       ##### I  adding a new tip to the list
       #---------------------------------------
       p_loc_prev <- orig_tip[orig_tip$orig_edge==p_loc_orig,]$prev_edge
@@ -694,7 +689,15 @@ get.placements.phylo<-function(jplace2_data=""){
                     }
                   }
                 }
+                ### adapt the branch matrix
+                for(rw in 1:nrow(branch_lengths)){
+                  if(branch_lengths[rw,]$new_edge > parent_tip1){
+                    branch_lengths[rw,]$new_edge <- branch_lengths[rw,]$new_edge-1
+                  }
+                }
+                
               } else{
+                print(paste("w1", parent_tip1, parent_tip2, newTips[b]))
                 warning("in introducing a polytomy, something went wrong")
               }
             }
@@ -730,11 +733,14 @@ get.placements.phylo<-function(jplace2_data=""){
               }
             }
           } else{
+            print(paste("w1", parent_tip1, parent_tip2, newTips[b]))
             warning("in introducing a polytomy, something went wrong")
           }
         }
       }
-    } else if(case_is_node){    
+    #######################################
+    } else if(case_is_node){ 
+    #######################################
       ##### I  adding a new tip to the list
       #---------------------------------------
       p_loc_prev <- orig_node[orig_node$orig_edge==p_loc_orig,]$prev_edge
@@ -749,7 +755,7 @@ get.placements.phylo<-function(jplace2_data=""){
       # re-number the tips, reference always before plcement
       orig_tip <- orig_tip[with(orig_tip, order(orig_tip$prev_edge, -orig_tip$new_edge, decreasing = FALSE)),]
       orig_tip$new_edge <- c(1:nrow(orig_tip))
-      
+
       ##### II split the edge to which the placement was added
       #---------------------------------------
       # this will create a one or more new internal node(s)/edge(s)
@@ -796,7 +802,7 @@ get.placements.phylo<-function(jplace2_data=""){
       # edge previousParent->newParent (largest) is already in the tree
       newParents <- orig_node[orig_node$prev_edge==p_loc_prev & orig_node$orig_edge < 0,]$new_edge
       newParents <- newParents[order(newParents, decreasing = TRUE)]
-      newTips <- orig_tip[orig_tip$orig_edge==-p_loc_prev,]$new_edge
+      newTips <- orig_tip[orig_tip$orig_edge==-p_loc_orig,]$new_edge
       newTips <- newTips[order(newTips, decreasing = TRUE)]
       for(b in 1:n_placements){
         newParent <- newParents[b]
@@ -863,7 +869,15 @@ get.placements.phylo<-function(jplace2_data=""){
                     }
                   }
                 }
+                ### adapt the branch matrix
+                for(rw in 1:nrow(branch_lengths)){
+                  if(branch_lengths[rw,]$new_edge > parent_tip1){
+                    branch_lengths[rw,]$new_edge <- branch_lengths[rw,]$new_edge-1
+                  }
+                }
+                
               } else{
+                print(paste("w1", parent_tip1, parent_tip2, newTips[b]))
                 warning("in introducing a polytomy, something went wrong")
               }
             }
@@ -899,11 +913,14 @@ get.placements.phylo<-function(jplace2_data=""){
               }
             }
           } else{
+            print(paste("w1", parent_tip1, parent_tip2, newTips[b]))
             warning("in introducing a polytomy, something went wrong")
           }
         }
       }
+    #######################################
     }  else if(case_is_root){
+    #######################################
       ##### I  adding a new tip to the list
       #---------------------------------------
       p_loc_prev <- previous_root
@@ -967,23 +984,6 @@ get.placements.phylo<-function(jplace2_data=""){
         
         ##### VI adding the new tips
         #---------------------------------------
-        newParents <- newParents[order(newParents, decreasing = FALSE)]
-        p_placements2 <- p_placements[with(p_placements, order(p_placements$distal_length, decreasing = TRUE)),]
-        remainder_length <- max(p_placements2$distal_length)
-        for(b in 1:n_placements){
-          # the tip edge
-          p_pendant <- p_placements2[b,]$pendant_length
-          branch_lengths[nrow(branch_lengths)+1,] = list(-p_loc_orig, p_loc_prev, newTips[b], p_pendant)
-          # the node edge
-          p_distal <-  p_placements2[b,]$distal_length
-          if(b>1){
-            node_distal <- remainder_length - p_distal
-            branch_lengths[nrow(branch_lengths)+1,] = list(-p_loc_orig, p_loc_prev, newParents[b], node_distal)
-          } 
-          branch_lengths[nrow(branch_lengths)+1,] = list(-p_loc_orig, p_loc_prev, newParents[b], p_distal)
-          remainder_length <- p_distal
-        }
-        
         p_placements2 <- p_placements[with(p_placements, order(p_placements$distal_length, decreasing = TRUE)),]
         remainder_length <- max(p_placements2$distal_length)
         for(b in 1:n_placements){
@@ -1000,11 +1000,14 @@ get.placements.phylo<-function(jplace2_data=""){
               ### special case: same branch length, so polytomy with previous tip
               parent_tip1 <- get.ancestors(newTips[b], edgeList=tree_edges, type="parent")
               parent_tip2 <- get.ancestors(newTips[b-1], edgeList=tree_edges, type="parent")
-              if((parent_tip2 - parent_tip1) == 1){ #should be impossible to be anything else than 1
-                ### adapt the orig_node matrix
-                orig_node <- orig_node[-which(orig_node$new_edge == parent_tip2),]
-                orig_node$new_edge<-unlist(sapply(orig_node$new_edge, function(t){if(t >= parent_tip2){t = t-1}else{t}}))
-                ### adapt the edge_tree matrix
+              ### adapt the orig_node matrix
+              orig_node <- orig_node[-which(orig_node$new_edge == parent_tip2),]
+              orig_node$new_edge<-unlist(sapply(orig_node$new_edge, function(t){if(t >= parent_tip2){t = t-1}else{t}}))
+              ### adapt the edge_tree matrix
+              if(parent_tip1==current_root){
+                tree_edges<-tree_edges[-which(tree_edges[,1] == current_root & tree_edges[,2] == parent_tip2),]
+                tree_edges[which(tree_edges[,1] == parent_tip2),1]<- current_root
+              } else{
                 grandparent_tip2 <- get.ancestors(parent_tip2, edgeList=tree_edges, type="parent")
                 tree_edges[which(tree_edges[,1] == parent_tip2 & tree_edges[,2] == parent_tip1),1]<-grandparent_tip2
                 tree_edges<-tree_edges[-which(tree_edges[,1] == grandparent_tip2 & tree_edges[,2] == parent_tip2),]
@@ -1016,8 +1019,12 @@ get.placements.phylo<-function(jplace2_data=""){
                     }
                   }
                 }
-              } else{
-                warning("in introducing a polytomy, something went wrong")
+                ### adapt the branch matrix
+                for(rw in 1:nrow(branch_lengths)){
+                  if(branch_lengths[rw,]$new_edge > parent_tip1){
+                    branch_lengths[rw,]$new_edge <- branch_lengths[rw,]$new_edge-1
+                  }
+                }
               }
             }
             
@@ -1035,24 +1042,20 @@ get.placements.phylo<-function(jplace2_data=""){
         for(b in 2:n_placements){
           parent_tip1 <- get.ancestors(newTips[b], edgeList=tree_edges, type="parent")
           parent_tip2 <- get.ancestors(newTips[b-1], edgeList=tree_edges, type="parent")
-          if((parent_tip2 - parent_tip1) == 1){ #should be impossible to be anything else than 1
-            ### adapt the orig_node matrix
-            orig_node <- orig_node[-which(orig_node$new_edge == parent_tip2),]
-            orig_node$new_edge<-unlist(sapply(orig_node$new_edge, function(t){if(t >= parent_tip2){t = t-1}else{t}}))
-            ### adapt the edge_tree matrix
-            grandparent_tip2 <- get.ancestors(parent_tip2, edgeList=tree_edges, type="parent")
-            tree_edges[which(tree_edges[,1] == parent_tip2 & tree_edges[,2] == parent_tip1),1]<-grandparent_tip2
-            tree_edges<-tree_edges[-which(tree_edges[,1] == grandparent_tip2 & tree_edges[,2] == parent_tip2),]
-            tree_edges[which(tree_edges[,1] == parent_tip2 & tree_edges[,2] == newTips[b-1]),1]<-parent_tip1
-            for(rw in 1:nrow(tree_edges)){
-              for(cl in 1:ncol(tree_edges)){
-                if(tree_edges[rw,cl] > parent_tip1){
-                  tree_edges[rw,cl] <- tree_edges[rw,cl]-1
-                }
+          ### adapt the orig_node matrix
+          orig_node <- orig_node[-which(orig_node$new_edge == parent_tip2),]
+          orig_node$new_edge<-unlist(sapply(orig_node$new_edge, function(t){if(t >= parent_tip2){t = t-1}else{t}}))
+          ### adapt the edge_tree matrix
+          grandparent_tip2 <- get.ancestors(parent_tip2, edgeList=tree_edges, type="parent")
+          tree_edges[which(tree_edges[,1] == parent_tip2 & tree_edges[,2] == parent_tip1),1]<-grandparent_tip2
+          tree_edges<-tree_edges[-which(tree_edges[,1] == grandparent_tip2 & tree_edges[,2] == parent_tip2),]
+          tree_edges[which(tree_edges[,1] == parent_tip2 & tree_edges[,2] == newTips[b-1]),1]<-parent_tip1
+          for(rw in 1:nrow(tree_edges)){
+            for(cl in 1:ncol(tree_edges)){
+              if(tree_edges[rw,cl] > parent_tip1){
+                tree_edges[rw,cl] <- tree_edges[rw,cl]-1
               }
             }
-          } else{
-            warning("in introducing a polytomy, something went wrong")
           }
         }
       }
@@ -1065,16 +1068,12 @@ get.placements.phylo<-function(jplace2_data=""){
                 sapply(tree_edges[,2],function(x){x<-as.integer(x)}))
   tree_edges <- tree_edges[order(tree_edges[,2]),]
   tip.label <- orig_tip$label
-  Nnode <- as.integer(length(table(edge[,1])))
-  Ref.Phylo.updated <- list(edge = edge, edge.length = edge.length, Nnode = Nnode, 
-                            tip.label = tip.label)
+  Nnode <- as.integer(length(table(tree_edges[,1])))
   if(BL){
     edge.length <- as.vector(branch_lengths$length)
-    Ref.Phylo.updated <- list(edge = edge, edge.length = edge.length, Nnode = Nnode, 
-                              tip.label = tip.label)
+    Ref.Phylo.updated <- list(edge = tree_edges, edge.length = edge.length, Nnode = Nnode, tip.label = tip.label)
   } else{
-    Ref.Phylo.updated <- list(edge = edge, Nnode = Nnode, 
-                              tip.label = tip.label)
+    Ref.Phylo.updated <- list(edge = tree_edges, Nnode = Nnode, tip.label = tip.label)
   }
   class(Ref.Phylo.updated) <- "phylo"
   attr(Ref.Phylo.updated, "order") <- "cladewise"
@@ -1082,377 +1081,19 @@ get.placements.phylo<-function(jplace2_data=""){
   return(Ref.Phylo.updated)
 }
 
-checkValidPhylo(Ref.Phylo.updated)
 
-edge=data.frame(Ref.Phylo.updated$edge, edge_num=Ref.Phylo.updated$edge[,2])
+test<-get.placements.phylo(test_jplace, verbose=TRUE)
+
+checkValidPhylo(test)
+table(test$edge[,1])
+
+edge=data.frame(test$edge, edge_num=test$edge[,2])
 colnames(edge)=c("parent", "node", "edge_num")
-t <- ggtree(Ref.Phylo.updated, ladderize=FALSE) + geom_tiplab() + theme_tree2() + xlim(0, 100) + geom_text2(aes(subset = !isTip, label=label)) 
+t <- ggtree(test, ladderize=FALSE) + geom_tiplab() + theme_tree2() + xlim(0, 100) + geom_text2(aes(subset = !isTip, label=label)) 
 t %<+% edge + geom_label(aes(x=branch, label=edge_num))
 
 
 
 
 
-
-get.placements.phylo___original<-function(jplace2_data=""){
-  # function that takes a jplace2 object
-  # returns a phylo object of the reference tree that includes placements based on the "best" position
-  # this cannot be done with bind.tree of ape because nodes are renumbered. 
-  # Here, nodes are also renumbered, but their original osition is remembered internally
-  
-  # 1) checks before getting started and getting data
-  if(is(jplace2_data,"jplace2")){    # check c.1: input must be of class jplace2
-    Ref.Phylo <- jplace2_data@phylo
-    placements <- jplace2_data@placements
-    if(!is.null(placements)){    # check c.2: there must be placement data to work with
-      placements<-get.placements.best(placements) #get the placements with the higest likelihood
-    }else{
-      stop('input does not contain placement data:
-           could not execute get.placements.phylo()')
-    }
-    } else{stop('input must be of class jplace2:
-         could not execute get.placements.phylo()')
-  }
-  
-  print("started processing, this may take a while...")
-  
-  # 2) placing the placements in the reference tree
-  # 2.1) build a matrices to keep track of the original edge numbers
-  #   taking the following assumptions:
-  #   - numbers 1:ntips are tips
-  #   - number ntips+1 is the root (and the tree must be rooted)
-  #   - numbers (ntips+1):nnodes are the internal nodes
-  #   - negative values indicate new placements
-  #   - edges have the same number as the child node they support
-  n.tips <- length(Ref.Phylo$tip.label) # number of tips in the reference tree
-  n.nodes <- nrow(Ref.Phylo$edge) # number of nodes in the reference tree
-  tree_edges <- Ref.Phylo$edge # the phylo edge matrix that will be updated
-  orig_tip <- data.frame(orig_edge = (1:n.tips), 
-                         prev_edge = (1:n.tips), 
-                         new_edge = (1:n.tips),
-                         label = c(Ref.Phylo$tip.label),
-                         stringsAsFactors=FALSE) # matrix keeping track of all the tips
-  current_root <- previous_root <- orig_root <- n.tips + 1L # the root node
-  orig_node <- data.frame(orig_edge = ((orig_root+1):(n.nodes+1)), 
-                          prev_edge = ((orig_root+1):(n.nodes+1)), 
-                          new_edge = ((orig_root+1):(n.nodes+1))) # matrix keeping track of all the internal nodes
-  if(!is.null(Ref.Phylo$edge.length)){
-    BL <- TRUE
-    branch_lengths <- data.frame(orig_edge = c(1:(orig_root-1), (orig_root+1):(n.nodes+1)), 
-                                 prev_edge = c(1:(orig_root-1), (orig_root+1):(n.nodes+1)),
-                                 new_edge = c(1:(orig_root-1), (orig_root+1):(n.nodes+1)), 
-                                 length = Ref.Phylo$edge.length) 
-  } else{
-    BL <- FALSE
-    warning("the reference tree has no edge lengths.")
-  }
-  
-  # remove double placements, keep just the ones with higest probability
-  placements <- get.placements.best(placements)
-  # order placements to see if there are multiple placements for one edge
-  placements <- placements[with(placements, order(placements$edge_num, decreasing = FALSE)),]
-  
-  
-  
-  
-  # function to update edges
-  update.edge <- function(e){
-    # updates an edge 
-    # input:  e = an edge number to be updated
-    # inherits following variebles from above:
-    #         previous_root
-    #         current_root
-    #         p_loc_prev
-    #         orig_tip
-    #         orig_node
-    # note: for the edge that will be split, of the 3 possible outcomes this function will give the name of the internal edge
-    
-    if(e == p_loc_prev){ 
-      # special case: if it's the edge to be split
-      if(e < previous_root){ # when it's a tip: return the internal edge
-        e_updated <- orig_node[orig_node$prev_edge==e,]$new_edge
-      } else if(e > previous_root){ # when it's an internal edge: return the edge furthest to the root (largest number)
-        e_updated <- orig_node[orig_node$prev_edge==e & orig_node$orig_edge > 0,]$new_edge
-      } else if(e == previous_root){
-        e_updated <- max(orig_node$prev_edge) + 2
-      }
-    } else if(e < previous_root & length(orig_tip[orig_tip$prev_edge==e,]$new_edge) > 1){ 
-      # special case: conflict with a new tip to an internal edge
-      # return the edge that was in the tree first
-      e_updated <- orig_tip[orig_tip$prev_edge==e & orig_tip$label != p_name,]$new_edge
-    } else{ 
-      # any other case: the edge was already part of the tree in the previous itteration
-      if(e < previous_root){ # case 1: changing a tip
-        e_updated <- orig_tip[orig_tip$prev_edge==e,]$new_edge
-      } else if(e == previous_root){ # case 2: changing the root
-        e_updated <- current_root
-      } else if(e > previous_root){ # case 3: changing an internal node
-        e_updated <- orig_node[orig_node$prev_edge==e & orig_node$orig_edge != -p_loc_prev,]$new_edge
-      } else{e_updated=NULL}
-    }
-    return(e_updated)
-  }
-  
-  # wraper function to update the branch lengths
-  update.brancheLengts <- function(branch_lengths){
-    # inherits fro above:
-    # branch_lengths
-    # p_loc_prev
-    # orig_tip
-    # orig_node
-    # p_distal
-    
-    # 1) update the present branch names
-    for(edge_n in 1:nrow(branch_lengths)) {
-      branch_lengths[edge_n,]$new_edge <- update.edge(branch_lengths[edge_n,]$prev_edge)
-    }
-    
-    # 2) correcting the length of the edge that was split
-    if(p_loc_orig != orig_root){
-      int_length <- (branch_lengths[branch_lengths$prev_edge==p_loc_prev,]$length) - p_distal
-      branch_lengths[branch_lengths$prev_edge==p_loc_prev,]$orig_edge = -branch_lengths[branch_lengths$prev_edge==p_loc_prev,]$orig_edge
-      if(int_length >= 0){
-        branch_lengths[branch_lengths$prev_edge==p_loc_prev,]$length = int_length
-      } else{
-        branch_lengths[branch_lengths$prev_edge==p_loc_prev,]$length = 0
-        warning("branch length < 0 set to length 0")
-      }
-    } 
-    return(branch_lengths)
-  }
-  
-  
-  # 2.2) running through the placements (p) and inserting them in the tree
-  for(p in 1:nrow(placements)){
-    p_loc_orig <- placements[p,]$edge_num # insert location in the original reference tree
-    p_name <- as.character(placements[p,]$name) # placement name
-    p_pendant <- placements[p,]$pendant_length # edge length of placement
-    p_distal <- placements[p,]$distal_length # length from distal node (away from the root) to the placement attachement
-    
-    sprintf("placing tip: %s in the reference tree.", p_name)
-    
-    # 2.2.1) any addition will shift the current root one down (by definition)
-    previous_root <- current_root
-    current_root <- current_root + 1
-    
-    # 2.2.2) to add a new tip/node, the previous settings must be saved
-    orig_tip$prev_edge <- orig_tip$new_edge
-    orig_node$prev_edge <- orig_node$new_edge
-    if(BL){branch_lengths$prev_edge <- branch_lengths$new_edge}
-    
-    # 2.2.3) check what of the 5 cases we are dealing with:
-    #   - case 1 = add to a tip
-    #   - case 2 = add to an internal node
-    #   - case 3 = attach a tip to the root
-    #   - case 4 = add to a tip that already has a placement (create polytomy)
-    #   - case 5 = add to a internal node that already has a placement (create polytomy)
-    
-    if(p_loc_orig < orig_root & !(-p_loc_orig) %in% orig_tip$orig_edge){     
-      #---------------------------------------------
-      # case 1 = add to a tip with no previous additions
-      #---------------------------------------------
-      # adding a new tip to the list
-      p_loc_prev <- orig_tip[orig_tip$orig_edge==p_loc_orig,]$prev_edge
-      orig_tip[nrow(orig_tip) + 1,] = list(-p_loc_orig, p_loc_prev, 0, p_name)
-      # re-number the tips, reference always before plcement
-      orig_tip <- orig_tip[with(orig_tip, order(orig_tip$prev_edge, -orig_tip$orig_edge, decreasing = FALSE)),]
-      orig_tip$new_edge <- c(1:nrow(orig_tip))
-      
-      # split the edge to which the placement was added
-      # this will create a new internal node/edge
-      new_edge <- max(abs(orig_node$orig_edge)) + 1
-      orig_node[nrow(orig_node)+1,] = list(-new_edge, p_loc_prev, -new_edge)
-      # look up the parent of the edge that will be split
-      #   the new edge will get the name of the parent, all higher edges will shift up
-      p_parent <- tree_edges[tree_edges[,2]==p_loc_prev][1]
-      if(p_parent==current_root){ # parent == new root by accident
-        shiftVal <- 1
-      } else{shiftVal <- 0}
-      
-      # re-number the internal edges
-      for(r in 1:nrow(orig_node)){
-        if(orig_node[r,]$prev_edge < previous_root){
-          orig_node[r,]$new_edge <- p_parent + shiftVal
-        } else if(orig_node[r,]$prev_edge >= (p_parent-1)){
-          orig_node[r,]$new_edge <- orig_node[r,]$prev_edge + 2
-        } else if(orig_node[r,]$prev_edge < (p_parent-1)){
-          orig_node[r,]$new_edge <- orig_node[r,]$prev_edge  + 1
-        }
-      }
-      
-      # update the tree_edges matrix
-      for(row in 1:nrow(tree_edges)) {
-        for(col in 1:ncol(tree_edges)) {
-          tree_edges[row, col] <- update.edge(tree_edges[row, col])
-        }
-      }
-      # adding the new edge (edge previousParent->p_loc_prev was split)
-      # edge previousParent->newParent is already in the tree
-      newParent <- orig_node[orig_node$prev_edge==p_loc_prev,]$new_edge
-      newTip <- orig_tip[orig_tip$prev_edge==p_loc_prev & orig_tip$orig_edge < 0,]$new_edge
-      tree_edges <- rbind(tree_edges, c(newParent, p_loc_prev)) # parent to reference tip
-      tree_edges <- rbind(tree_edges, c(newParent, newTip)) # parent to placement tip
-      tree_edges <- tree_edges[order(tree_edges[,2]),]
-      
-      if(BL){
-        # update the branch length matrix
-        branch_lengths<-update.brancheLengts(branch_lengths)
-        # adding the new tips
-        tip_ref <- orig_tip[orig_tip$prev_edge==p_loc_prev & orig_tip$orig_edge > 0,]$new_edge
-        tip_placement <- orig_tip[orig_tip$prev_edge==p_loc_prev & orig_tip$orig_edge < 0,]$new_edge
-        branch_lengths[nrow(branch_lengths)+1,] = list(p_loc_orig, p_loc_prev, tip_ref, p_distal)
-        branch_lengths[nrow(branch_lengths)+1,] = list(-p_loc_orig, p_loc_prev, tip_placement, p_pendant)
-        branch_lengths <- branch_lengths[order(branch_lengths$new_edge),]
-      }
-      
-    } else if(p_loc_orig > orig_root & !(-p_loc_orig) %in% orig_tip$orig_edge){    
-      #---------------------------------------------
-      # case 2 = add to an internal node with no previous additions
-      #---------------------------------------------
-      # adding a new tip to the list
-      p_loc_prev <- orig_node[orig_node$orig_edge==p_loc_orig,]$prev_edge
-      # first look up the most logical place 
-      # here defined as one higher than the highest descendant from the branch where the tip will be placed
-      dsc <- get.descendants(p_loc_prev,tree_edges, type="all")
-      dsc <- max(dsc[dsc < previous_root]) #place after which to insert the new node
-      # add the tip
-      orig_tip[nrow(orig_tip) + 1,] = list(-p_loc_orig, update.edge(dsc), 0, p_name)
-      # re-number the tips, reference always before plcement
-      orig_tip <- orig_tip[with(orig_tip, order(orig_tip$prev_edge, -orig_tip$orig_edge, decreasing = FALSE)),]
-      orig_tip$new_edge <- c(1:nrow(orig_tip))
-      
-      # split the edge to which the placement was added
-      # this will create a new internal node/edge
-      new_edge <- max(abs(orig_node$orig_edge)) + 1
-      orig_node[nrow(orig_node)+1,] = list(-new_edge, p_loc_prev, -new_edge)
-      # re-number the internal edges
-      for(r in 1:nrow(orig_node)){
-        if(orig_node[r,]$prev_edge == p_loc_prev){
-          if(orig_node[r,]$orig_edge < 0){
-            orig_node[r,]$new_edge <- p_loc_prev + 1
-          } else{
-            orig_node[r,]$new_edge <- p_loc_prev + 2
-          }
-        } else if(orig_node[r,]$prev_edge > p_loc_prev){
-          orig_node[r,]$new_edge <- orig_node[r,]$prev_edge + 2
-        } else if(orig_node[r,]$prev_edge < p_loc_prev){
-          orig_node[r,]$new_edge <- orig_node[r,]$prev_edge + 1
-        }
-      }
-      
-      # update the tree_edges matrix
-      for(row in 1:nrow(tree_edges)) {
-        for(col in 1:ncol(tree_edges)) {
-          if(tree_edges[row, col] == p_loc_prev){
-            if(col==1){ # special case: branch to split: new distal part (away from root)
-              tree_edges[row, col] <- p_loc_prev + 1 
-            } else{ # special case: branch to split: new proximal part (close to root)
-              tree_edges[row, col] <- p_loc_prev + 2
-            }
-          } else{
-            tree_edges[row, col] <- update.edge(tree_edges[row, col])
-          }
-        }
-      }
-      # adding the new edge (edge previousParent->p_loc_prev was split)
-      # edge previousParent->newParent is already in the tree
-      newParent <- orig_node[orig_node$prev_edge==p_loc_prev  & orig_node$orig_edge > 0,]$new_edge
-      newTip <- orig_tip[orig_tip$orig_edge == -p_loc_orig,]$new_edge
-      newEdge <- orig_node[orig_node$prev_edge == p_loc_prev & orig_node$orig_edge < 0,]$new_edge
-      tree_edges <- rbind(tree_edges, c(newParent, newEdge)) # parent to reference tip
-      tree_edges <- rbind(tree_edges, c(newParent, newTip)) # parent to placement tip
-      tree_edges <- tree_edges[order(tree_edges[,2]),]
-      
-      if(BL){
-        # update the branch length matrix
-        branch_lengths<-update.brancheLengts(branch_lengths)
-        # adding the new tips and edges to the branch length matrix
-        tip_placement <- orig_tip[orig_tip$orig_edge== -p_loc_orig,]$new_edge
-        branch_lengths[nrow(branch_lengths)+1,] = list(-p_loc_orig, p_loc_prev, newEdge, p_distal)
-        branch_lengths[nrow(branch_lengths)+1,] = list(-p_loc_orig, p_loc_prev, newTip, p_pendant)
-        branch_lengths <- branch_lengths[order(branch_lengths$new_edge),]
-      }
-      
-    } else if(p_loc_orig == orig_root & !(-p_loc_orig) %in% orig_tip$orig_edge){
-      #---------------------------------------------
-      # case 3 = attach a tip to the root with no previous additions
-      #---------------------------------------------
-      warning("a tip was placed at the root of the tree")
-      # adding a new tip to the list
-      p_loc_prev <- previous_root
-      orig_tip[nrow(orig_tip) + 1,] = list(-p_loc_orig, update.edge(previous_root-1), 0, p_name)
-      # re-number the tips, reference always before placement
-      orig_tip <- orig_tip[with(orig_tip, order(orig_tip$prev_edge, -orig_tip$orig_edge, decreasing = FALSE)),]
-      orig_tip$new_edge <- c(1:nrow(orig_tip))
-      
-      # split the edge to which the placement was added
-      # this will create a new internal node/edge
-      new_edge <- max(abs(orig_node$prev_edge)) + 1
-      orig_node[nrow(orig_node)+1,] = list(-new_edge, p_loc_prev, -new_edge)
-      # re-number the internal edges
-      for(r in 1:nrow(orig_node)){
-        if(orig_node[r,]$prev_edge == p_loc_prev){
-          orig_node[r,]$new_edge <- new_edge + 1
-        } else{
-          orig_node[r,]$new_edge <- orig_node[r,]$prev_edge + 1
-        }
-      }
-      
-      # update the tree_edges matrix
-      for(row in 1:nrow(tree_edges)) {
-        for(col in 1:ncol(tree_edges)) {
-          tree_edges[row, col] <- update.edge(tree_edges[row, col])
-        }
-      }
-      
-      # adding the new edge (edge previousParent->p_loc_prev was split)
-      # edge previousParent->newParent is already in the tree
-      newEdge <- orig_node[orig_node$prev_edge == previous_root,]$new_edge
-      tree_edges <- rbind(tree_edges, c(current_root, newEdge)) # parent to reference tip
-      tree_edges <- rbind(tree_edges, c(current_root, previous_root)) # parent to placement tip
-      tree_edges <- tree_edges[order(tree_edges[,2]),]
-      
-      if(BL){
-        # update the branch length matrix
-        branch_lengths<-update.brancheLengts(branch_lengths)
-        # adding the new tips and edges to the branch length matrix
-        branch_lengths[nrow(branch_lengths)+1,] = list(-p_loc_orig, p_loc_prev, newEdge, p_distal)
-        branch_lengths[nrow(branch_lengths)+1,] = list(-p_loc_orig, p_loc_prev, previous_root, p_pendant)
-        branch_lengths <- branch_lengths[order(branch_lengths$new_edge),]
-      }
-      
-    } 
-  }
-  
-  
-  
-  
-  
-  
-  
-  
-  ### TEST: PLOT TREE
-  edge <- cbind(sapply(tree_edges[,1],function(x){x<-as.integer(x)}),
-                sapply(tree_edges[,2],function(x){x<-as.integer(x)}))
-  edge <- edge[order(edge[,2]),]
-  
-  edge.length <- as.vector(branch_lengths$length)
-  tip.label <- orig_tip$label
-  Nnode <- as.integer(length(table(edge[,1])))
-  Ref.Phylo.updated <- list(edge = edge, edge.length = edge.length, Nnode = Nnode, 
-                            tip.label = tip.label)
-  class(Ref.Phylo.updated) <- "phylo"
-  attr(Ref.Phylo.updated, "order") <- "cladewise"
-  
-  checkValidPhylo(Ref.Phylo.updated)
-  edge=data.frame(Ref.Phylo.updated$edge, edge_num=Ref.Phylo.updated$edge[,2])
-  colnames(edge)=c("parent", "node", "edge_num")
-  t <- ggtree(Ref.Phylo.updated, ladderize=FALSE) + geom_tiplab() + theme_tree2() + xlim(0, 100) + geom_text2(aes(subset = !isTip, label=label)) 
-  t %<+% edge + geom_label(aes(x=branch, label=edge_num))
-  
-  
-  
-}
-
-    
     
