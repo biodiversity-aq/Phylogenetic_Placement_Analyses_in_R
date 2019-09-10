@@ -22,39 +22,39 @@ library(ggtree)
 library(ips) #phylogenetic analyses
 library(phytools)
 
-jplace_file <- file.path(CorePath, "R_wdir/epa_result.jplace")
 
 ### test JPLACE
-tree.text<-"(((((((A:4{0},B:4{1}):6{2},C:5{3}):8{4},D:6{5}):3{6},E:21{7}):10{8},((F:4{9},G:12{10}):14{11},H:8{12}):13{13}):13{14},((I:5{15},J:2{16}):30{17},(K:11{18},L:11{19}):2{20}):17{21}):4{22},M:56{23});"
-Ref.Phylo<- read.tree(text=tree.text)
-placements<-data.frame(name=c("AAA", "EEE", "XXX", "XXX", "XXX", "YYY", "outgroup", 
-                              "AA2", "EE2", "XX2", "out2", "out3",
-                              "AA3", "XX3"), 
-                       edge_num=c(1, 5, 18, 8, 9, 25, 14,
-                                  1, 5, 18, 14,
-                                  1, 18, 14), 
-                       likelihood=c(-4987.366, -4977.344, -4487.390, -4523.130, -4589.930, -4977.344, -4977.344,
-                                    -4987.366, -4977.344, -4977.344, -4977.344,
-                                    -4977.344, -4977.344, -4977.344),
-                       like_weight_ratio=c(0.08358164, 0.04068357, 0.02859273, 0.02859273, 0.02859273, 0.02859273, 0.02859273,
-                                           0.08358164, 0.04068357, 0.02859273, 0.02859273,
-                                           0.02859273, 0.04068357, 0.04068357),
-                       distal_length=c(0.5, 1, 1, 1, 1, 1, 1,
-                                       1, 1, 1, 1,
-                                       1, 1,1),
-                       pendant_length=c(4, 5, 3, 3, 3, 5, 24,
-                                        8, 12, 3, 30,
-                                        7, 23,2))
-
-
-info <- list("test tree")
-test_jplace <- new("jplace2",
-                treetext   = tree.text,
-                phylo      = Ref.Phylo,
-                placements = placements,
-                info       = info,
-                file       = normalizePath(jplace_file)
-                )
+#jplace_file <- file.path(CorePath, "R_wdir/epa_result.jplace")
+#tree.text<-"(((((((A:4{0},B:4{1}):6{2},C:5{3}):8{4},D:6{5}):3{6},E:21{7}):10{8},((F:4{9},G:12{10}):14{11},H:8{12}):13{13}):13{14},((I:5{15},J:2{16}):30{17},(K:11{18},L:11{19}):2{20}):17{21}):4{22},M:56{23});"
+# Ref.Phylo<- read.tree(text=tree.text)
+# placements<-data.frame(name=c("AAA", "EEE", "XXX", "XXX", "XXX", "YYY", "outgroup", 
+#                               "AA2", "EE2", "XX2", "out2", "out3",
+#                               "AA3", "XX3"), 
+#                        edge_num=c(1, 5, 18, 8, 9, 25, 14,
+#                                   1, 5, 18, 14,
+#                                   1, 18, 14), 
+#                        likelihood=c(-4987.366, -4977.344, -4487.390, -4523.130, -4589.930, -4977.344, -4977.344,
+#                                     -4987.366, -4977.344, -4977.344, -4977.344,
+#                                     -4977.344, -4977.344, -4977.344),
+#                        like_weight_ratio=c(0.08358164, 0.04068357, 0.02859273, 0.02859273, 0.02859273, 0.02859273, 0.02859273,
+#                                            0.08358164, 0.04068357, 0.02859273, 0.02859273,
+#                                            0.02859273, 0.04068357, 0.04068357),
+#                        distal_length=c(0.5, 1, 1, 1, 1, 1, 1,
+#                                        1, 1, 1, 1,
+#                                        1, 1,1),
+#                        pendant_length=c(4, 5, 3, 3, 3, 5, 24,
+#                                         8, 12, 3, 30,
+#                                         7, 23,2))
+# 
+# 
+# info <- list("test tree")
+# test_jplace <- new("jplace2",
+#                 treetext   = tree.text,
+#                 phylo      = Ref.Phylo,
+#                 placements = placements,
+#                 info       = info,
+#                 file       = normalizePath(jplace_file)
+#                 )
 
 #############################################################################
 ###    Classes and methodes
@@ -85,7 +85,6 @@ setMethod("show",
 extract.placement <- function(object, phylo) {
   placements <- object$placements
   placements <- json_data$placements
-  
   
   place <- placements[,1]
   
@@ -197,7 +196,7 @@ get.ancestors <- function(target_node, edgeList, type=c("all", "parent")){
   if(type == "all"){
     doneList<-c()
     n_added <- length(ancsList)
-    while(! n_added == 0){ #loop through the tree to add all the other descendants
+    while(! n_added == 0){ #loop through the tree to add all the other ancestors
       n_added = 0
       for(a in ancsList){
         if(!a %in% doneList){
@@ -211,8 +210,163 @@ get.ancestors <- function(target_node, edgeList, type=c("all", "parent")){
       }
     }
   }
+  
   return(ancsList)
 }
+
+subset.tree <- function(phylo.tree, target_tip, ancestorNodes_back=1){
+  # function will subset a tree for a given target tip
+  # input requires an phylo-object tree and a target tip name
+  # ancestorNodes_back: integer how many ancestors back should be subsetted.
+  # ancestorNodes_back=1 will return the direct ancestor and it's tips (or subtree)
+  # written because treeio::tree_subset did not work properly, retruning trees with multiple roots,...
+
+  # 1 check input data
+  if(class(phylo.tree) != "phylo"){
+    stop("input tree (phylo.tree argument) must be of class \"phylo\"")
+  } else{
+    tiplabs<-phylo.tree$tip.label
+    edgeList<-phylo.tree$edge
+    branchLengths<-phylo.tree$edge.length
+  }
+  if(!(target_tip %in% tiplabs)){
+    stop("target_tip argument must be a tip label of the input tree.
+         check if target_tip is a name (not an edge number) and has no typo's")
+  }
+  
+  # 2 find the oldest ancestor first
+  n_target_tip <- which(tiplabs == target_tip) #target_tip number
+  n_parent<-edgeList[edgeList[,2] == n_target_tip,1] #the parent
+  if(ancestorNodes_back > 1){
+    for(lvl in 2:ancestorNodes_back){   #lvl for level
+      n_parent<-edgeList[edgeList[,2] == n_parent,1] #the parent
+    } 
+  }
+  n_root <- n_parent
+  
+  # 3 build the tree from the oldest ancestor up
+  n_edgeList_thisloop <- n_edgeList <- edgeList[which(edgeList[,1] == n_root),]
+  n_added <- 1
+  n_edgeList_prevloop <- NULL
+  while(! n_added == 0){ #loop through the tree to add all the other descendants
+    n_added = 0
+    n_edgeList_prevloop <- n_edgeList_thisloop
+    n_edgeList_thisloop <- NULL
+    for(rw in 1:nrow(n_edgeList_prevloop)){
+      thisloop_parent <- n_edgeList_prevloop[rw,2]
+      if(thisloop_parent > length(tiplabs)){
+        n_edgeList_thisloop <- rbind(n_edgeList_thisloop, edgeList[which(edgeList[,1] == thisloop_parent),])
+        n_added = n_added + 1
+      }
+      n_edgeList <- rbind(n_edgeList, n_edgeList_thisloop)
+    }
+  }
+  
+  n_edgeList<-unique(n_edgeList)
+  
+  # 4 get the respective labels and branch lengts
+  n_labs <- n_edgeList[n_edgeList[,2] <= length(tiplabs),2]
+  n_labs <- n_labs[order(n_labs, decreasing=FALSE)]
+  n_labs <- tiplabs[n_labs]
+  n_branchLengths <- unique(c(n_edgeList))
+  n_branchLengths <- n_branchLengths[-which(n_branchLengths == n_root)]
+  n_branchLengths <- n_branchLengths[order(n_branchLengths, decreasing=FALSE)]
+  n_branchLengths <- branchLengths[n_branchLengths]
+  
+  # 5 re-number the edges
+  n_edgeList <- n_edgeList[order(n_edgeList[,2], decreasing=FALSE),]
+  tp = 0
+  nd = 1
+  ed = 0
+  edge_dict <- data.frame(orig=NA, new=NA)
+  for(rw in 1:nrow(n_edgeList)){
+    for(cl in 1:ncol(n_edgeList)){
+      if(! n_edgeList[rw,cl] %in% edge_dict$orig){ # node not yet registerded
+        ed = ed + 1
+        if(n_edgeList[rw,cl] <= length(tiplabs)){ ## tip
+          tp = tp + 1
+          edge_dict[ed,]<- list(n_edgeList[rw,cl], tp)
+          n_edgeList[rw,cl] <- tp
+        } else if(n_edgeList[rw,cl] == n_root){ ## root
+          edge_dict[ed,]<- list(n_root, length(n_labs) + 1)
+          n_edgeList[rw,cl] <- length(n_labs) + 1
+        } else{ ## node
+          nd = nd + 1
+          edge_dict[ed,]<- list(n_edgeList[rw,cl], length(n_labs) + nd)
+          n_edgeList[rw,cl] <- length(n_labs) + nd
+        } 
+      }else{ #node already registered
+        n_edgeList[rw,cl] <- edge_dict[edge_dict$orig == n_edgeList[rw,cl],]$new
+      }
+    }
+  }
+  
+  # 6 make a group vector to subset the target tip
+  n_groups <- c()
+  for(l in 1:length(n_labs)){
+    if(n_labs[l]==target_tip){
+      n_groups <- c(n_groups, 1)
+    } else{
+      n_groups <- c(n_groups, 0)
+    }
+  }
+  n_groups <- c(n_groups, rep(0,length(n_branchLengths)-length(n_labs)+1))
+  n_groups <- as.factor(n_groups)
+  
+  # 7 put everything back into a tree
+  n_edgeList <- cbind(sapply(n_edgeList[,1],function(x){x<-as.integer(x)}),
+                      sapply(n_edgeList[,2],function(x){x<-as.integer(x)}))
+  n_edgeList <- n_edgeList[order(n_edgeList[,2]),]
+  Nnode <- as.integer(length(table(n_edgeList[,1])))
+  n_branchLengths <- as.vector(n_branchLengths)
+  out_phylo <- list(edge = n_edgeList, edge.length = n_branchLengths, Nnode = Nnode, 
+                    tip.label = n_labs)
+
+  class(out_phylo) <- "phylo"
+  attr(out_phylo, "order") <- "cladewise"
+  attr(out_phylo, "group") <- n_groups
+  
+  
+  return(out_phylo)
+  
+}
+
+make.groupvec <- function(phylo.tree, ...){
+  # function will create a vector that devides the target_tips from the others
+  # input requires an phylo-object tree and any number of vectors with target tip names
+  
+  # 1 check input data
+  if(class(phylo.tree) != "phylo"){
+    stop("input tree (phylo.tree argument) must be of class \"phylo\"")
+  } else{
+    tiplabs<-phylo.tree$tip.label
+    edgeList<-phylo.tree$edge
+    branchLengths<-phylo.tree$edge.length
+  }
+  
+  tipgroups <- list(...)
+  
+  for(target_tips in tipgroups) {
+    if(!(target_tips %in% tiplabs)){
+      stop("target_tip argument must be a tip label of the input tree.
+           check if target_tip is a name (not an edge number) and has no typo's")
+    }
+    }
+  
+  n_groups <- c(rep(0, length(tiplabs)))
+  for(l in 1:length(tiplabs)){
+    for(t in 1:length(tipgroups)) {
+      if(tiplabs[l] %in% tipgroups[[t]]){
+        n_groups[l] <- t
+      }
+    }
+  }
+  
+  n_groups <- c(n_groups, rep(0,length(branchLengths)-length(tiplabs)+1))
+  n_groups <- as.factor(n_groups)
+  attr(phylo.tree, "group") <- n_groups
+  return(phylo.tree)
+  }
 
 
 #############################################################################
@@ -430,11 +584,14 @@ read.jplace2 <- function(jplace_file=""){
 ###    putting placements into a tree
 #############################################################################
 
-get.placements.phylo<-function(jplace2_data="", verbose=FALSE){
-  # function that takes a jplace2 object
+get.placements.phylo<-function(jplace2_data="", verbose=FALSE, group=FALSE){
+  # function that takes a jplace2 object and makes a consensus phylogenetic tree
+  # @param jplace2_data: a jplace2 data object (i.e. the result of read.jplace2)
+  # @param verbose: boolean, TRUE means that during the execution of the code, status updates will be printed in the console, FALSE means silent
+  # @param group: boolean, TRUE means an extra attribute will be added to the tree, which is a vector with the reference tips as group 0 and the placement tips as group 1
   # returns a phylo object of the reference tree that includes placements based on the "best" position
   # this cannot be done with bind.tree of ape because nodes are renumbered. 
-  # Here, nodes are also renumbered, but their original osition is remembered internally
+  # Here, nodes are also renumbered, but their original position is remembered internally
   
   # 1) checks before getting started and getting data
   if(is(jplace2_data,"jplace2")){    # check c.1: input must be of class jplace2
@@ -486,7 +643,7 @@ get.placements.phylo<-function(jplace2_data="", verbose=FALSE){
   
   # remove double placements, keep just the ones with higest probability
   placements <- get.placements.best(placements)
-  target_locations<-unique(placements$edge_num)
+  target_locations<-sort(unique(placements$edge_num))
   if(verbose){print(paste("There are", nrow(placements), "placements for", 
                           length(target_locations), "edges"))}
 
@@ -500,6 +657,7 @@ get.placements.phylo<-function(jplace2_data="", verbose=FALSE){
     #         p_loc_prev
     #         orig_tip
     #         orig_node
+    #         case_is_tip
     # note: for the edge that will be split, of the 3 possible outcomes this function will give the name of the internal edge
     
     if(e == p_loc_prev){ 
@@ -522,10 +680,25 @@ get.placements.phylo<-function(jplace2_data="", verbose=FALSE){
       } else if(e == previous_root){ # case 2: changing the root
         e_updated <- current_root
       } else if(e > previous_root){ # case 3: changing an internal node
-        e_updated <- orig_node[orig_node$prev_edge==e & orig_node$orig_edge != -p_loc_prev,]$new_edge
+        e_updated <- orig_node[orig_node$prev_edge==e,]$new_edge
+        #e_updated <- orig_node[orig_node$prev_edge==e & orig_node$orig_edge != -p_loc_prev,]$new_edge
       } else{e_updated=NULL}
     }
-    return(e_updated)
+    if(length(e_updated == 1)){
+      return(e_updated)
+    } else{ ## error
+      e_updated<- paste('update.edge() returned empty value. \n',
+                        'Diagnostics:\n',
+                        'input edge:', e, '\n',
+                        'the previous location of that edge:', p_loc_prev, '\n',
+                        'the new root will be:', current_root, '\n',
+                        'previous root was:', previous_root, '\n',
+                        paste(orig_node[abs(orig_node$orig_edge)==p_loc_prev,], collapse=' | '), '\n')
+      print(orig_node[orig_node$prev_edge %in% c((e-100):(e+100)),])
+      print(max(orig_node$prev_edge))
+      stop(e_updated)
+    }
+
   }
   
   #---------------------------------------------
@@ -537,7 +710,7 @@ get.placements.phylo<-function(jplace2_data="", verbose=FALSE){
   #---------------------------------------------
   for(p_loc_orig in target_locations){ 
     if(verbose){print(paste("processing placements for edge", p_loc_orig))}
-    # p_edge is the target edge for thisparticular (set of) placement(s)
+    # edge_num is the target edge for thisparticular (set of) placement(s)
     p_placements <- placements[placements$edge_num==p_loc_orig,]
     
     # 2.2.1 assess the type of the placement 
@@ -569,7 +742,6 @@ get.placements.phylo<-function(jplace2_data="", verbose=FALSE){
     orig_node$prev_edge <- orig_node$new_edge
     if(BL){branch_lengths$prev_edge <- branch_lengths$new_edge}
    
-    
     # order based on distal length, largest length last (because it will split of first)
     p_placements <- p_placements[with(p_placements, order(p_placements$distal_length, decreasing = FALSE)),]
     
@@ -599,13 +771,18 @@ get.placements.phylo<-function(jplace2_data="", verbose=FALSE){
       for(r in 1:nrow(orig_node)){
         if(orig_node[r,]$prev_edge < previous_root){ #new edges
           e <- (abs(orig_node[r,]$orig_edge) - max_edge - 1)
-          orig_node[r,]$new_edge <- p_parent + n_placements + e
+          if(p_parent==previous_root){# special case: there is interference with the root
+            orig_node[r,]$new_edge <- p_parent + n_placements + e + 1
+          } else{
+            orig_node[r,]$new_edge <- p_parent + n_placements + e
+          }
         } else if(orig_node[r,]$prev_edge >= p_parent){ #edges behind the placement
           orig_node[r,]$new_edge <- orig_node[r,]$prev_edge + (2*n_placements)
         } else if(orig_node[r,]$prev_edge < p_parent){ #edges before the placement
           orig_node[r,]$new_edge <- orig_node[r,]$prev_edge  + (1*n_placements)
         }
       }
+      
       
       ##### III update the edgeList
       #---------------------------------------
@@ -614,6 +791,7 @@ get.placements.phylo<-function(jplace2_data="", verbose=FALSE){
           tree_edges[row, col] <- update.edge(tree_edges[row, col])
         }
       }
+
       
       ##### IV adding the new edge(s) 
       #---------------------------------------
@@ -1077,23 +1255,150 @@ get.placements.phylo<-function(jplace2_data="", verbose=FALSE){
   }
   class(Ref.Phylo.updated) <- "phylo"
   attr(Ref.Phylo.updated, "order") <- "cladewise"
-
+  
+  if(group){
+    # make a group vector to subset the placement tips
+    n_groups <- c()
+    for(l in 1:nrow(orig_tip)){
+      if(orig_tip[l,]$orig_edge < 0){
+        n_groups <- c(n_groups, 1)
+      } else{
+        n_groups <- c(n_groups, 0)
+      }
+    }
+    
+    n_groups <- c(n_groups, rep(0,length(edge.length)-nrow(orig_tip)+1))
+    n_groups <- as.factor(n_groups)
+    
+    attr(Ref.Phylo.updated, "group") <- n_groups
+  }
   return(Ref.Phylo.updated)
 }
 
 
-test<-get.placements.phylo(test_jplace, verbose=TRUE)
+make.referenceTree <- function(RefFasta, taxon=NULL, outgroup=NULL){
+  require(seqinr)
+  require(ape)
+  # function that takes a jplace2 object
+  # @param RefFasta: a path to fasta file or a DNAStringSet
+  #     required format of headers: [number] [tab] [number] [tab] [semi-colon separated taxonomy]
+  # @param taxon: character, a taxonomic group
+  # @param outgroup: character, the outgroup to root the tree (of the same taxonomic rank as the taxon)
 
-checkValidPhylo(test)
-table(test$edge[,1])
-
-edge=data.frame(test$edge, edge_num=test$edge[,2])
-colnames(edge)=c("parent", "node", "edge_num")
-t <- ggtree(test, ladderize=FALSE) + geom_tiplab() + theme_tree2() + xlim(0, 100) + geom_text2(aes(subset = !isTip, label=label)) 
-t %<+% edge + geom_label(aes(x=branch, label=edge_num))
-
-
-
-
-
+  # !!! depends on a working version of FastTree !!!
+  # to install FastTree, run:
+  # system(paste("gcc -O3 -finline-functions -funroll-loops -Wall -o /Applications/FastTree /Users/msweetlove/Desktop/FastTree.c -lm"))
+  
+  # assumptions: 
+  # only the first 5 representatives per genus within the taxon are used
+  # only the first hit with the outgroup will be used; i.e. the outgroup will be one sequence
+  # if outgroup is not NULL, the tree will be rooted at the outgroup
+  
+  # returns a phylo object of the reference tree of the given taxon
+  
+  CorePath<-getwd()
+  
+  # get taxon out of reference (1 seq that serves to root the tree)
+  print("started processing ...")
+  phy_subsetNames <- names(RefFasta)
+  if(! is.null(outgroup)){
+    phy_subsetNames_root <- phy_subsetNames[grepl(paste("^.*;",outgroup,";.*$", sep=""), phy_subsetNames)]
+    phy_subsetNames_root <- phy_subsetNames_root[1]
+    phy_subsetNames <- phy_subsetNames[grepl(paste("^.*;",taxon,";.*$", sep=""), phy_subsetNames)]
+    if(!is.na(phy_subsetNames_root)){
+      phy_subsetNames <- c(phy_subsetNames, phy_subsetNames_root)
+    } else{
+      stop("invalid outgroup, no sequences found ...")
+    }
+  } else{
+    phy_subsetNames <- phy_subsetNames[grepl(paste("^.*;",taxon,";.*$", sep=""), phy_subsetNames)]
+  }
+  RefFastasub <- RefFasta[phy_subsetNames]
+  
+  # change names to family_genus_species (otherwise they are way to long)
+  s.names <- c(names(RefFastasub))
+  s.names <- sapply(s.names, function(x){strsplit(x, '\t')[[1]][3]})
+  s.names <- sapply(s.names, function(x){paste(tail(strsplit(x, ';')[[1]], n=3), collapse='_')})
+  s.names <- sapply(s.names, function(x){gsub("_    ", "_sp", x, fixed=T)})
+  s.names2 <- make.names(s.names, unique=TRUE) #make each name unique
+  names(s.names2)<-names(s.names)
+  names(RefFastasub)<-s.names2[phy_subsetNames]
+  
+  # remove references of same genus if >5 occurences
+  taxToKeep <- c(); taxList <- c()
+  for(i in 1:length(names(RefFastasub))){
+    taxName <- gsub("\\.[0-9]*$", "", names(RefFastasub)[i])
+    if(!taxName %in% taxList){
+      taxToKeep <- c(taxToKeep, names(RefFastasub)[i])
+      taxList <- c(taxList, taxName)
+    } else if(table(taxList[taxList==taxName])<6){
+      taxToKeep <- c(taxToKeep, names(RefFastasub)[i])
+      taxList <- c(taxList, taxName)
+    }
+  }
+  RefFastasub <- RefFastasub[taxToKeep]
+  
+  # delete columns with only gaps for all sequences
+  RefFastasub<-RemoveGaps(RefFastasub, "common")
+  
+  # write file 
+  refTree.align <- file.path(CorePath, paste("refTree.temp.align.fasta", sep=""))
+  writeXStringSet(RefFastasub, refTree.align, format="fasta")
+  
+  #--------------------------------------------------------------
+  # making a reference tree with FastTree
+  print("running FastTree ...")
+  refTree.tree <- file.path(CorePath, paste("refTree.temp.tree.nwk", sep=""))
+  if(file.exists(refTree.tree)){
+    file.remove(refTree.tree)
+  }
+  system(paste("OMP_NUM_THREADS=1 /Applications/FastTree -n 10 -nt -gtr -gamma",
+               "<", refTree.align, ">>", refTree.tree, 
+               "2>>", file.path(CorePath, "fasttree_modelParam.txt"),
+               sep=" "))
+  
+  # set aside the model parameters of GTR+G that fasttree used
+  # these are written as stderr, captured in fasttree_modelParam.txt
+  reftree_info <- grep("GTR rates(ac ag at cg ct gt)", 
+                       readLines(file.path(CorePath, "fasttree_modelParam.txt")), 
+                       fixed=TRUE, value=TRUE)
+  reftree_info <- gsub("GTR rates(ac ag at cg ct gt) ", "", reftree_info, fixed=TRUE)
+  reftree_info <- paste(strsplit(reftree_info, " ")[[1]], collapse = "/")
+  reftree_info <- paste("--model GTR{", reftree_info, "}")
+  
+  file.remove(file.path(CorePath, "fasttree_modelParam.txt"))
+  
+  #--------------------------------------------------------------
+  # root the reference tree
+  if(! is.null(outgroup)){
+    print("rooting the tree ...")
+    # read the reference phylogenetic tree 
+    phyloTreeRef <- NULL
+    phyloTreeRef <- ape::read.tree(refTree.tree)
+    # print(phyloTreeRef)
     
+    # root phylogenetic tree with outgroup
+    # get correct tip.labels of outgroup
+    phy_subsetNames_root2 <- strsplit(phy_subsetNames_root, '\t')
+    phy_subsetNames_root2 <- paste(tail(strsplit(phy_subsetNames_root2[[1]], ';')[[3]], n=3), collapse='_')
+    phy_subsetNames_root2 <- as.vector(gsub("_    ", "_sp", phy_subsetNames_root2, fixed=T))
+    
+    # root tree
+    phyloTreeRef_root <- ape::root(phyloTreeRef, phy_subsetNames_root2, resolve.root=TRUE)
+    is.rooted(phyloTreeRef_root)
+    ape::write.tree(phyloTreeRef_root, file = refTree.tree, tree.names = TRUE)
+  } 
+
+  print("completed making a Reference Tree")
+  print(paste("tree location:  ", refTree.tree, sep=""))
+
+  return(list(reftree_info, refTree.tree, refTree.align))
+  
+}
+
+
+
+
+
+
+
